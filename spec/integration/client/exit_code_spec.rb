@@ -23,7 +23,7 @@ describe "chef-client" do
 
   let(:critical_env_vars) { %w{PATH RUBYOPT BUNDLE_GEMFILE GEM_PATH}.map { |o| "#{o}=#{ENV[o]}" } .join(" ") }
 
-  when_the_repository "does not have eit_status configured" do
+  when_the_repository "does not have exit_status configured" do
 
     def setup_client_rb
       file "config/client.rb", <<EOM
@@ -40,11 +40,11 @@ audit_mode :audit_only
 EOM
     end
 
-    def run_chef_client_and_expect_eit_code(eit_code)
+    def run_chef_client_and_expect_exit_code(exit_code)
       shell_out!(
         "#{chef_client} -c \"#{path_to('config/client.rb')}\" -o 'x::default'",
         :cwd => chef_dir,
-        :returns => [eit_code])
+        :returns => [exit_code])
     end
 
     context "has a cookbook" do
@@ -57,9 +57,9 @@ EOM
             file "cookbooks/x/libraries/error.rb", "require 'does/not/exist'"
           end
 
-          it "eits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
@@ -78,9 +78,9 @@ end
 RECIPE
           end
 
-          it "eits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb_with_audit_mode
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
@@ -91,27 +91,27 @@ RECIPE
         context "which throws an error" do
           before { file "cookbooks/x/recipes/default.rb", "raise 'BOOM'" }
 
-          it "eits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
-        context "with a recipe which calls Chef::Application.fatal with a non-RFC eit code" do
+        context "with a recipe which calls Chef::Application.fatal with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.fatal!('BOOM', 123)" }
 
-          it "eits with the specified eit code" do
+          it "exits with the specified exit code" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 123
+            run_chef_client_and_expect_exit_code 123
           end
         end
 
-        context "with a recipe which calls Chef::Application.eit with a non-RFC eit code" do
-          before { file "cookbooks/x/recipes/default.rb", "Chef::Application.eit!('BOOM', 231)" }
+        context "with a recipe which calls Chef::Application.exit with a non-RFC exit code" do
+          before { file "cookbooks/x/recipes/default.rb", "Chef::Application.exit!('BOOM', 231)" }
 
-          it "eits with the specified eit code" do
+          it "exits with the specified exit code" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 231
+            run_chef_client_and_expect_exit_code 231
           end
         end
 
@@ -121,13 +121,13 @@ RECIPE
 
   end
 
-  when_the_repository "does has eit_status configured" do
+  when_the_repository "does has exit_status configured" do
 
     def setup_client_rb
       file "config/client.rb", <<EOM
 local_mode true
 cookbook_path "#{path_to('cookbooks')}"
-eit_status :enabled
+exit_status :enabled
 EOM
     end
 
@@ -135,16 +135,16 @@ EOM
       file "config/client.rb", <<EOM
 local_mode true
 cookbook_path "#{path_to('cookbooks')}"
-eit_status :enabled
+exit_status :enabled
 audit_mode :audit_only
 EOM
     end
 
-    def run_chef_client_and_expect_eit_code(eit_code)
+    def run_chef_client_and_expect_exit_code(exit_code)
       p = shell_out(
         "#{chef_client} -c \"#{path_to('config/client.rb')}\" -o 'x::default'",
         :cwd => chef_dir,
-        :returns => [eit_code])
+        :returns => [exit_code])
       require 'pry'; binding.pry
     end
 
@@ -158,9 +158,9 @@ EOM
             file "cookbooks/x/libraries/error.rb", "require 'does/not/exist'"
           end
 
-          it "eits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
@@ -179,9 +179,9 @@ end
 RECIPE
           end
 
-          it "eits with AUDIT_MODE_FAILURE, 42" do
+          it "exits with AUDIT_MODE_FAILURE, 42" do
             setup_client_rb_with_audit_mode
-            run_chef_client_and_expect_eit_code 42
+            run_chef_client_and_expect_exit_code 42
           end
         end
 
@@ -192,27 +192,27 @@ RECIPE
         context "which throws an error" do
           before { file "cookbooks/x/recipes/default.rb", "raise 'BOOM'" }
 
-          it "eits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
-        context "with a recipe which calls Chef::Application.fatal with a non-RFC eit code" do
+        context "with a recipe which calls Chef::Application.fatal with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.fatal!('BOOM', 123)" }
 
-          it "eits with the GENERAL_FAILURE eit code, 1" do
+          it "exits with the GENERAL_FAILURE exit code, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
-        context "with a recipe which calls Chef::Application.eit with a non-RFC eit code" do
-          before { file "cookbooks/x/recipes/default.rb", "Chef::Application.eit!('BOOM', 231)" }
+        context "with a recipe which calls Chef::Application.exit with a non-RFC exit code" do
+          before { file "cookbooks/x/recipes/default.rb", "Chef::Application.exit!('BOOM', 231)" }
 
-          it "eits with the GENERAL_FAILURE eit code, 1" do
+          it "exits with the GENERAL_FAILURE exit code, 1" do
             setup_client_rb
-            run_chef_client_and_expect_eit_code 1
+            run_chef_client_and_expect_exit_code 1
           end
         end
 
