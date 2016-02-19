@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+require "chef/dsl/reboot_pending"
 
 class Chef
   class Application
@@ -68,18 +69,31 @@ class Chef
 
         def resolve_exit_code(exit_code)
           return if exit_code.nil?
-          return exit_code if exit_code.is_a? Fixnum
-          return unless exit_code.is_a? Exception
+          case exit_code 
+          when Fixnum
+            resolve_fixnum_exit_code(exit_code)
+          when Exception
+            resolve_exit_code_from_exception(exit_code)
+          end 
+        end
+        
+        def resolve_fixnum_exit_code(exit_code)
+          return exit_code if allow_deprecated_exit_code
+          if reboot_needed?(exit_code)
+            VALID_RFC_062_EXIT_CODES[:REBOOT_NEEDED]
+          else
+            exit_code
+          end
+        end
 
+        def resolve_exit_code_from_exception(exception)
           if allow_deprecated_exit_code
             VALID_RFC_062_EXIT_CODES[:GENERIC_FAILURE]
-          elsif reboot_now?(exit_code)
+          elsif reboot_now?(exception)
             VALID_RFC_062_EXIT_CODES[:REBOOT_NOW]
-          elsif reboot_needed?(exit_code)
-            VALID_RFC_062_EXIT_CODES[:REBOOT_NEEDED]
-          elsif reboot_failed?(exit_code)
+          elsif reboot_failed?(exception)
             VALID_RFC_062_EXIT_CODES[:REBOOT_FAILED]
-          elsif audit_failure?(exit_code)
+          elsif audit_failure?(exception)
             VALID_RFC_062_EXIT_CODES[:AUDIT_MODE_FAILURE]
           else
             VALID_RFC_062_EXIT_CODES[:GENERIC_FAILURE]
@@ -92,8 +106,8 @@ class Chef
           end
         end
 
-        def reboot_needed?(exception)
-          false
+        def reboot_needed?(exit_code)
+          exit_code == 0 && Chef::DSL::RebootPending.reboot_pending?
         end
 
         def reboot_failed?(exception)
