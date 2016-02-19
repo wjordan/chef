@@ -66,6 +66,8 @@ class Chef
     class Group < RuntimeError; end
     class Link < RuntimeError; end
     class Mount < RuntimeError; end
+    class Reboot < RuntimeError; end
+    class RebootFailed < Mixlib::ShellOut::ShellCommandFailed; end
     class PrivateKeyMissing < RuntimeError; end
     class CannotWritePrivateKey < RuntimeError; end
     class RoleNotFound < RuntimeError; end
@@ -426,18 +428,20 @@ This error is most often caused by network issues (proxies, etc) outside of chef
       end
     end
 
-    class AuditControlGroupDuplicate < RuntimeError
+    class AuditError < RuntimeError; end
+
+    class AuditControlGroupDuplicate < AuditError
       def initialize(name)
         super "Control group with name '#{name}' has already been defined"
       end
     end
-    class AuditNameMissing < RuntimeError; end
-    class NoAuditsProvided < RuntimeError
+    class AuditNameMissing < AuditError; end
+    class NoAuditsProvided < AuditError
       def initialize
         super "You must provide a block with controls"
       end
     end
-    class AuditsFailed < RuntimeError
+    class AuditsFailed < AuditError
       def initialize(num_failed, num_total)
         super "Audit phase found failures - #{num_failed}/#{num_total} controls failed"
       end

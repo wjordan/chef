@@ -27,6 +27,7 @@ require "chef/platform"
 require "mixlib/cli"
 require "tmpdir"
 require "rbconfig"
+require "chef/application/exit_code"
 
 class Chef
   class Application
@@ -326,15 +327,19 @@ class Chef
         true
       end
 
-      # Log a fatal error message to both STDERR and the Logger, exit the application
-      def fatal!(msg, err = -1)
-        Chef::Log.fatal(msg)
-        Process.exit err
+      def validate_exit_code(exit_code)
+        Chef::Application::ExitCode.validate_exit_code(exit_code)
       end
 
-      def exit!(msg, err = -1)
+      # Log a fatal error message to both STDERR and the Logger, exit the application
+      def fatal!(msg, err = nil)
+        Chef::Log.fatal(msg)
+        Process.exit(validate_exit_code(err))
+      end
+
+      def exit!(msg, err = nil)
         Chef::Log.debug(msg)
-        Process.exit err
+        Process.exit(validate_exit_code(err))
       end
     end
 

@@ -43,6 +43,7 @@ class Chef
       class << self
 
         def validate_exit_code(exit_code = nil)
+          exit_code = resolve_exit_code(exit_code)
           return exit_code if valid?(exit_code)
           default_exit_code
         end
@@ -57,6 +58,58 @@ class Chef
         end
 
         private
+
+        def resolve_exit_code(exit_code)
+          return if exit_code.nil?
+          return exit_code if exit_code.is_a? Fixnum
+          return unless exit_code.is_a? Exception
+
+          if allow_deprecated_exit_code
+            VALID_RFC_062_EXIT_CODES[:GENERIC_FAILURE]
+          elsif reboot_now?(exit_code)
+            VALID_RFC_062_EXIT_CODES[:REBOOT_NOW]
+          elsif reboot_needed?(exit_code)
+            VALID_RFC_062_EXIT_CODES[:REBOOT_NEEDED]
+          elsif reboot_failed?(exit_code)
+            VALID_RFC_062_EXIT_CODES[:REBOOT_FAILED]
+          elsif audit_failure?(exit_code)
+            VALID_RFC_062_EXIT_CODES[:AUDIT_MODE_FAILURE]
+          else
+            VALID_RFC_062_EXIT_CODES[:GENERIC_FAILURE]
+          end
+        end
+
+        def reboot_now?(exception)
+          resolve_exception_array(exception).any? do |e|
+            e.is_a? Chef::Exceptions::Reboot
+          end
+        end
+
+        def reboot_needed?(exception)
+          false
+        end
+
+        def reboot_failed?(exception)
+          resolve_exception_array(exception).any? do |e|
+            e.is_a? Chef::Exceptions::RebootFailed
+          end
+        end
+
+        def audit_failure?(exception)
+          resolve_exception_array(exception).any? do |e|
+            e.is_a? Chef::Exceptions::AuditError
+          end
+        end
+
+        def resolve_exception_array(exception)
+          exception_array = [exception]
+          if exception.respond_to?(:wrapped_errors)
+            exception.wrapped_errors.each do |e|
+              exception_array.push e
+            end
+          end
+          exception_array
+        end
 
         def deprecated_exit_codes(exit_code)
           !valid_rfc?(exit_code) || deprecated_rfc?(exit_code)
