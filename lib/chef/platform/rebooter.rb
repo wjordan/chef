@@ -19,6 +19,7 @@
 require "chef/dsl/reboot_pending"
 require "chef/log"
 require "chef/platform"
+require "chef/application/exit_code"
 
 class Chef
   class Platform
@@ -38,8 +39,15 @@ class Chef
                   "shutdown -r +#{reboot_info[:delay_mins]} \"#{reboot_info[:reason]}\""
                 end
 
-          Chef::Log.warn "Rebooting server at a recipe's request. Details: #{reboot_info.inspect}"
-          shell_out!(cmd)
+          msg = "Rebooting server at a recipe's request. Details: #{reboot_info.inspect}"
+          begin
+            Chef::Log.warn msg
+            shell_out!(cmd)
+          rescue Mixlib::ShellOut::ShellCommandFailed => e
+            raise Chef::Exceptions::RebootFailed.new(e.message)
+          end
+
+          raise Chef::Exceptions::Reboot.new(msg) unless Chef::Application::ExitCode.allow_deprecated_exit_code
         end
 
         # this is a wrapper function so Chef::Client only needs a single line of code.

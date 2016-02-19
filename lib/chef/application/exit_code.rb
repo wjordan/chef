@@ -57,6 +57,13 @@ class Chef
           allow_deprecated_exit_code
         end
 
+        def allow_deprecated_exit_code
+          ## TODO: change the check to just
+          ## Chef::Config[:exit_status] == :disabled
+          Chef::Config[:exit_status].nil? ||
+            Chef::Config[:exit_status] != :enabled
+        end
+
         private
 
         def resolve_exit_code(exit_code)
@@ -129,13 +136,6 @@ class Chef
 
         def skip_validation
           Chef::Config[:exit_status] == :disabled
-        end
-
-        def allow_deprecated_exit_code
-          ## TODO: change the check to just
-          ## Chef::Config[:exit_status] == :disabled
-          Chef::Config[:exit_status].nil? ||
-            Chef::Config[:exit_status] != :enabled
         end
 
         def deprecation_warning

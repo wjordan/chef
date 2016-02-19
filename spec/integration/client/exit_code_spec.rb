@@ -3,6 +3,7 @@ require "support/shared/integration/integration_helper"
 require "chef/mixin/shell_out"
 require "tiny_server"
 require "tmpdir"
+require "chef/platform"
 
 describe "chef-client" do
 
@@ -58,7 +59,7 @@ EOM
             file "cookbooks/x/libraries/error.rb", "require 'does/not/exist'"
           end
 
-          xit "exits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
           end
@@ -79,7 +80,7 @@ end
 RECIPE
           end
 
-          xit "exits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb_with_audit_mode
             run_chef_client_and_expect_exit_code 1
           end
@@ -92,7 +93,7 @@ RECIPE
         context "which throws an error" do
           before { file "cookbooks/x/recipes/default.rb", "raise 'BOOM'" }
 
-          xit "exits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
           end
@@ -101,7 +102,7 @@ RECIPE
         context "with a recipe which calls Chef::Application.fatal with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.fatal!('BOOM', 123)" }
 
-          xit "exits with the specified exit code" do
+          it "exits with the specified exit code" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 123
           end
@@ -110,9 +111,34 @@ RECIPE
         context "with a recipe which calls Chef::Application.exit with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.exit!('BOOM', 231)" }
 
-          xit "exits with the specified exit code" do
+          it "exits with the specified exit code" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 231
+          end
+        end
+
+        context "with a recipe that requests a reboot" do
+          before do
+            file "cookbooks/x/recipes/default.rb", <<EOM
+reboot "test" do
+  delay_mins 20
+  reason "functional test of reboot exit code"
+  action :reboot_now
+end
+EOM
+          end
+
+          after do
+            if Chef::Platform.windows?
+              shell_out!("shutdown /a")
+            else
+              shell_out!("shutdown -c")
+            end
+          end
+
+          it "exits with SUCCESS, 0" do
+            setup_client_rb
+            run_chef_client_and_expect_exit_code 0
           end
         end
 
@@ -157,7 +183,7 @@ EOM
             file "cookbooks/x/libraries/error.rb", "require 'does/not/exist'"
           end
 
-          xit "exits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
           end
@@ -191,7 +217,7 @@ RECIPE
         context "which throws an error" do
           before { file "cookbooks/x/recipes/default.rb", "raise 'BOOM'" }
 
-          xit "exits with GENERAL_FAILURE, 1" do
+          it "exits with GENERAL_FAILURE, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
           end
@@ -200,7 +226,7 @@ RECIPE
         context "with a recipe which calls Chef::Application.fatal with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.fatal!('BOOM', 123)" }
 
-          xit "exits with the GENERAL_FAILURE exit code, 1" do
+          it "exits with the GENERAL_FAILURE exit code, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
           end
@@ -209,9 +235,34 @@ RECIPE
         context "with a recipe which calls Chef::Application.exit with a non-RFC exit code" do
           before { file "cookbooks/x/recipes/default.rb", "Chef::Application.exit!('BOOM', 231)" }
 
-          xit "exits with the GENERAL_FAILURE exit code, 1" do
+          it "exits with the GENERAL_FAILURE exit code, 1" do
             setup_client_rb
             run_chef_client_and_expect_exit_code 1
+          end
+        end
+        
+        context "with a recipe that requests a reboot" do
+          before do
+            file "cookbooks/x/recipes/default.rb", <<EOM
+reboot "test" do
+  delay_mins 20
+  reason "functional test of reboot exit code"
+  action :reboot_now
+end
+EOM
+          end
+
+          after do
+            if Chef::Platform.windows?
+              shell_out!("shutdown /a")
+            else
+              shell_out!("shutdown -c")
+            end
+          end
+
+          it "exits with REBOOT_NOW, 40" do
+            setup_client_rb
+            run_chef_client_and_expect_exit_code 40
           end
         end
 
