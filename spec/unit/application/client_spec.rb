@@ -428,4 +428,42 @@ describe Chef::Application::Client, "run_application", :unix_only do
       expect(result.exitstatus).to eq(0)
     end
   end
-end
+
+  context "when sent SIGUSR2" do
+    context "when interval is given" do
+      before do
+        Chef::Config[:interval] = 600
+        Chef::Config[:daemonize] = true
+        allow(Chef::Daemon).to receive(:daemonize).and_return(true)
+      end
+
+      it "should wake up and call exec_upgrade" do
+        @pid = fork do
+          expect(@app).to receive(:time_to_sleep).exactly(1).times.and_call_original
+          expect(@app).to receive(:exec_upgrade) { Chef::Application.exit!('', 0) }
+          @app.run_application
+        end
+        sleep 0.1
+        Process.kill("USR2", @pid)
+        Process.wait(@pid)
+      end
+
+      it "should allow child to finish converging" do
+        @pid = fork do
+          expect(@app).to receive(:time_to_sleep).exactly(1).times.and_return 0
+          expect(@app).to receive(:exec_upgrade) { Chef::Application.exit!('', 0) }
+          @app.run_application
+        end
+        sleep 0.1
+        expect(@pipe[0].gets).to eq("started\n")
+
+        Process.kill("USR2", @pid)
+        Process.wait(@pid)
+        # The timeout value needs to be large enough for the child process to finish
+        expect(IO.select([@pipe[0]], nil, nil, 15)).not_to be_nil
+        expect(@pipe[0].gets).to eq("finished\n")
+      end
+    end
+  end
+
+  end

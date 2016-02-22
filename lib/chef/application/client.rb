@@ -291,6 +291,7 @@ class Chef::Application::Client < Chef::Application
     :boolean        => false
 
   IMMEDIATE_RUN_SIGNAL = "1".freeze
+  UPGRADE_SIGNAL = "2".freeze
 
   attr_reader :chef_client_json
 
@@ -395,6 +396,10 @@ class Chef::Application::Client < Chef::Application
         Chef::Log.info("SIGUSR1 received, waking up")
         SELF_PIPE[1].putc(IMMEDIATE_RUN_SIGNAL) # wakeup master process from select
       end
+      trap("USR2") do
+        Chef::Log.info("SIGUSR2 received, waking up")
+        SELF_PIPE[1].putc(UPGRADE_SIGNAL) # wakeup master process from select
+      end
     end
   end
 
@@ -428,12 +433,13 @@ class Chef::Application::Client < Chef::Application
     loop do
       begin
         @signal = test_signal
-        if @signal != IMMEDIATE_RUN_SIGNAL
+        if @signal != IMMEDIATE_RUN_SIGNAL && @signal != UPGRADE_SIGNAL
           sleep_sec = time_to_sleep
           Chef::Log.debug("Sleeping for #{sleep_sec} seconds")
           interval_sleep(sleep_sec)
         end
 
+        exec_upgrade if @signal == UPGRADE_SIGNAL
         @signal = nil
         run_chef_client(Chef::Config[:specific_recipes])
 
@@ -502,5 +508,11 @@ class Chef::Application::Client < Chef::Application
         f.write(r.read)
       end
     end
+  end
+
+  def exec_upgrade
+    Chef::Log.info("Upgrading chef-client: `exec #{$0} #{ARGV.join(' ')}`")
+    File.delete(Chef::Daemon.pid_file) if Chef::Daemon.pid_from_file
+    exec $0, *ARGV
   end
 end
